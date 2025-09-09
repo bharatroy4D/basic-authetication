@@ -62,25 +62,39 @@ app.post('/authentication_app/signup/', async (req, res) => {
     res.send(resualt)
 })
 
-//login
+// login
 app.post('/authentication_app/signin/', async (req, res) => {
-    const email = req.body.email
-    const password = req.body.password
-    const user = await usersCollection.findOne({ email })
-    if (!user) {
-        res.send('email not match')
+    try {
+        const { email, password } = req.body;
+
+        // user check
+        const user = await usersCollection.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ error: "Email not found" });
+        }
+
+        // password check
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(400).json({ error: "Password not match" });
+        }
+
+        // JWT token create
+        const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        // client-কে token + user পাঠানো
+        res.json({
+            message: "User login successfully",
+            token,
+            user: { email: user.email }
+        });
+
+    } catch (err) {
+        console.error("Login error:", err);
+        res.status(500).json({ error: "Server error" });
     }
+});
 
-    const passwordMatch = await bcrypt.compare(password, user.password)
-
-    if (!passwordMatch) {
-        res.send('Password not match')
-    }
-
-    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '1h' })
-    res.cookie('token', token)
-    res.json('User ligin successfully')
-})
 
 //logout
 app.post('/authentication_app/logout/', async (req, res) => {
