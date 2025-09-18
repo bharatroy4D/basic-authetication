@@ -16,7 +16,10 @@ dotenv.config()
 
 app.use(express.json())
 app.use(cookeiPercer())
-app.use(cors())
+app.use(cors({
+    origin:'*',
+    credentials:true
+}))
 
 
 const uri = process.env.DB
@@ -82,6 +85,11 @@ app.post('/authentication_app/signin/', async (req, res) => {
         // JWT token create
         const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
+        res.cookie('token',token,{
+            httpOnly:true,
+            secure:true,
+            sameSite:'none'
+        })
         // client-কে token + user পাঠানো
         res.json({
             message: "User login successfully",
@@ -132,17 +140,9 @@ app.get('/authentication_app/user_profile/', async (req, res) => {
 let otpStore
 //send otp
 app.post('/authentication_app/resend_otp/', async (req, res) => {
-    const token = req.cookies.token
-    if (!token) {
-        res.json('Please Login and Try again')
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    if (!decoded) {
-        res.json('Please Login and Try again')
-    }
-    const { email } = decoded
+    const { email } =req.body
 
-    const otp = crypto.randomInt(100000, 999999).toString()
+    const otp = crypto.randomInt(100000, 999999)
     otpStore = otp
 
     try {
@@ -158,25 +158,29 @@ app.post('/authentication_app/resend_otp/', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: "OTP send failed", details: err.message });
     }
-    // res.send(otpStore)
+    res.send(otpStore)
 
 })
 
 
 //verify otp
 app.post('/authentication_app/verify_otp/', (req, res) => {
-    const { email, otp } = req.body
+    const { email, otp:getotp } = req.body
+    const otpString = getotp.join("");    // "122072"
+const otpNumber = Number(otpString);
+    
+console.log(otpNumber,otpStore,email,req.body);
 
-    const token = req.cookies.token
+    // const token = req.cookies.token
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-    const emailMatch = email === decoded.email
-    if (!emailMatch) {
-        res.json('please login and use gmail')
-    }
+    // const emailMatch = email === decoded.email
+    // if (!emailMatch) {
+    //     res.json('please login and use gmail')
+    // }
 
-    const matchOTP = otp === otpStore
+    const matchOTP = otpNumber === otpStore
     if (!matchOTP) {
         res.json('OTP not match')
     }
